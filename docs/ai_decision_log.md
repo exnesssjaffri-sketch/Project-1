@@ -150,3 +150,25 @@ function createId() {
 - **Optional chaining `?.` + `??`:** Pehle browser/FE try karta hai modern API; na mile to kabhi fail-na-ho-ne-wala fallback. Is se button **har context / har browser** mein chalta hai — secure-context dependency khatam.
 - **Delete bhi same pattern:** State upar (`App`), event upar (`onRemove`) — purana architecture mein koi naya pattern nahi, is liye codebase consistent.
 - **Fresh server:** Vite ki stale dep-cache kabhi-kabhi purana module graph serve karti hai; dev server restart isse khatam karta hai — user ko `Ctrl+Shift+R` (hard refresh) bhi karna chahiye.
+---
+
+## Entry 008 — Supabase integration: Ready infrastructure (client + env + schema)
+
+**Problem:**
+App abhi sirf local React state par chal rahi hai — user ab Supabase (database + auth + realtime) connect karna chahta hai. Pehle client-side infrastructure ready karni thi, taake real keys daalne par sab turant chale.
+
+**Chosen React solution:**
+```
+src/lib/supabase.js   ← createClient(env se URL + key); config missing → null + console.warn
+.env.example          ← format ka template (committed — safe)
+.env                  ← real keys yahan (gitignored — secret protect)
+supabase/schema.sql   ← habits table + RLS policies + index (SQL Editor mein run karna)
+.gitignore            ← .env / .env.* ignore, sirf .env.example allow
+```
+
+**KYUN:**
+- **`createClient` app-level sirf ek baar:** Supabase SDK ka recommended pattern — ek shared client module, har component import karta hai. Har bar nya client banane se performance + duplicate connection issues aate.
+- **Graceful missing-config:** `.env` mein placeholder chal raha hai — app crash nahi karti, sirf console warning mein bata hai kya set karna hai. Is tarah user bina keys ke bhi dev/test kar sakta hai.
+- **`.env` gitignored:** Anon key technically public use ke liye hoti hai (RLS usse protect karta hai), lekin kabhi kabhi developers galti se service_role key daal dete hain — jo full-privilege hoti hai. Hamesha secrets ko push se bahar rakhna best practice hai.
+- **RLS policies + `user_id`:** Har habit ek `auth.users` se link hoti hai. `auth.uid() = user_id` policy future auth ke saath turant secure hai — "users select/insert/update/delete own habits only".
+- **`supabase/schema.sql` as source of truth:** DB structure version-controlled rakho — koi bhi machine par naya project khol kar run kar sakta hai.
